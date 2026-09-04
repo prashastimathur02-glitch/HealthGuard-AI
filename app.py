@@ -313,7 +313,9 @@ def apply_theme() -> None:
         [data-testid="stMetricValue"] { color: #f5f6f8 !important; font-weight: 700; }
         [data-testid="stMetricDelta"] { color: #aeb5c1 !important; }
 
-        div[data-testid="stAlert"] { position: relative; border-left: 3px solid #df3b45 !important; background: rgba(223, 59, 69, .06) !important; }
+        div[data-testid="stAlert"] { position: relative; border-left: 3px solid #df3b45 !important; background: #151b27 !important; color: #f5f7fb !important; font-family: 'Inter', sans-serif !important; font-size: 1.02rem !important; line-height: 1.7 !important; }
+        div[data-testid="stAlert"] p, div[data-testid="stAlert"] li, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div { color: #f5f7fb !important; font-family: 'Inter', sans-serif !important; line-height: 1.7 !important; }
+        div[data-testid="stAlert"] strong { color: #ffffff !important; font-weight: 700 !important; }
         div[data-testid="stAlert"]::before { content: ''; position: absolute; left: -3px; top: 0; bottom: 0; width: 3px; background: #df3b45; box-shadow: -7px 0 18px rgba(223, 59, 69, .7); animation: pulse-edge 2.5s ease-in-out infinite; }
         @keyframes pulse-edge { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
 

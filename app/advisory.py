@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import os
+import re
 import requests
 
 from app.risk_engine import aqi_band
 from app.schemas import Conditions, RiskAssessment, UserProfile
+
+
+def _clean_model_text(text: str) -> str:
+    """Never display a model's private reasoning in a health advisory."""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
 def deterministic_advisory(profile: UserProfile, conditions: Conditions, risk: RiskAssessment) -> str:
@@ -19,9 +25,9 @@ def generate_advisory(profile: UserProfile, conditions: Conditions, risk: RiskAs
     facts = {"profile": profile.__dict__, "conditions": conditions.__dict__, "risk": risk.__dict__}
     prompt = "Write a concise, plain-English weather and AQI advisory in 55 words or fewer. Use only supplied facts. Do not diagnose or add numbers. End with informational-not-medical-advice disclaimer. Facts: " + str(facts)
     try:
-        response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"), "messages": [{"role": "user", "content": prompt}], "temperature": 0.2, "max_tokens": 150}, timeout=15)
+        response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}, json={"model": os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"), "messages": [{"role": "user", "content": prompt}], "temperature": 0.2, "max_tokens": 150, "reasoning_effort": "none"}, timeout=15)
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip(), "AI-personalized advisory"
+        return _clean_model_text(response.json()["choices"][0]["message"]["content"]), "AI-personalized advisory"
     except (requests.RequestException, KeyError, ValueError):
         return deterministic_advisory(profile, conditions, risk), "Rules-based fallback (AI temporarily unavailable)"
 
@@ -64,9 +70,10 @@ def translate_text(text: str, language: str) -> tuple[str, str]:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"), "messages": [{"role": "user", "content": f"Translate this health advisory into {language}. Preserve all facts, warnings, formatting, and disclaimer. Do not add advice: {text}"}], "temperature": 0, "max_tokens": 250},
+            json={"model": os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"), "messages": [{"role": "system", "content": "You are a translation engine. Return only the translated text. Do not include analysis, reasoning, or tags."}, {"role": "user", "content": f"Translate this health advisory into {language}. Preserve all facts, warnings, formatting, and disclaimer. Do not add advice: {text}"}], "temperature": 0, "max_tokens": 350, "reasoning_effort": "none"},
             timeout=15,
         )
-        return response.json()["choices"][0]["message"]["content"].strip(), language
+        translated = _clean_model_text(response.json()["choices"][0]["message"]["content"])
+        return (translated, language) if translated else (text, "English fallback — translation returned no text")
     except (requests.RequestException, KeyError, ValueError):
         return text, "English fallback — translation temporarily unavailable"
