@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 from weather import geocode_city, fetch_weather
 from aqi import fetch_air_quality
-from risk_engine import build_trend_dataframe
+from risk_engine import build_trend_dataframe, calculate_risk_score
 from ai_advisor import get_ai_advisory
 
 st.set_page_config(page_title="Weather & AQI Health Advisory", page_icon="🌤️", layout="wide")
@@ -97,6 +97,59 @@ c6.metric("US AQI", f"{aqi_val:.0f}" if aqi_val is not None else "N/A")
 st.markdown("### 🩺 Your Personalized Advisory")
 advisory_text = get_ai_advisory(profile, current_conditions)
 st.info(advisory_text)
+
+# --- What-If Simulator ---
+st.markdown("### 🔮 What-If Simulator")
+
+current_risk = calculate_risk_score(profile, current_conditions)
+
+st.write(f"Current environmental risk: **{current_risk}/100**")
+
+simulated_aqi = st.slider(
+    "🌫️ Simulate AQI",
+    min_value=0,
+    max_value=300,
+    value=int(current_conditions["us_aqi"])
+    if current_conditions["us_aqi"] is not None else 100,
+    step=10
+)
+
+simulated_temperature = st.slider(
+    "🌡️ Simulate Temperature (°C)",
+    min_value=15,
+    max_value=45,
+    value=int(current_conditions["temperature"]),
+    step=1
+)
+
+simulated_conditions = current_conditions.copy()
+
+simulated_conditions["us_aqi"] = simulated_aqi
+simulated_conditions["temperature"] = simulated_temperature
+
+# Calculate the new risk
+simulated_risk = calculate_risk_score(
+    profile,
+    simulated_conditions
+)
+
+difference = simulated_risk - current_risk
+
+st.write(f"Simulated risk: **{simulated_risk}/100**")
+
+if difference > 0:
+    st.warning(
+        f"⚠️ Risk increases by **{difference} points** "
+        f"if AQI becomes {simulated_aqi} and temperature becomes "
+        f"{simulated_temperature}°C."
+    )
+elif difference < 0:
+    st.success(
+        f"✅ Risk decreases by **{abs(difference)} points** "
+        f"under these conditions."
+    )
+else:
+    st.info("Your risk score stays the same.")
 # Easy Mode display
 if easy_mode:
     st.markdown("## ❤️ Easy Mode")

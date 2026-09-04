@@ -49,3 +49,86 @@ def rule_based_advisory(profile: dict, c: dict) -> str:
     if not lines:
         lines.append("Conditions look generally fine today — no major precautions needed for your profile.")
     return " ".join(lines)
+
+def calculate_risk_score(profile: dict, conditions: dict) -> int:
+    """
+    Calculate a simple personalized environmental risk score from 0 to 100.
+    Higher score means higher environmental risk.
+    """
+
+    score = 0
+
+    aqi = conditions.get("us_aqi")
+    temp = conditions.get("temperature")
+    uv = conditions.get("uv_index")
+
+    age_group = profile.get("age_group")
+    health_condition = profile.get("health_condition")
+    occupation = profile.get("occupation")
+
+    # Air quality
+    if aqi is not None:
+        if aqi > 300:
+            score += 50
+        elif aqi > 200:
+            score += 40
+        elif aqi > 150:
+            score += 30
+        elif aqi > 100:
+            score += 20
+        elif aqi > 50:
+            score += 10
+
+    # Heat
+    if temp is not None:
+        if temp >= 40:
+            score += 25
+        elif temp >= 35:
+            score += 20
+        elif temp >= 30:
+            score += 10
+
+    # UV exposure
+    if uv is not None:
+        if uv >= 8:
+            score += 10
+        elif uv >= 6:
+            score += 5
+
+    # Higher-risk age groups
+    if age_group in ("Child", "Senior (60+)"):
+        score += 5
+
+    # Health conditions
+    if health_condition in (
+        "Asthma",
+        "Heart condition",
+        "Other respiratory condition"
+    ):
+        score += 10
+    elif health_condition in ("Allergies", "Pregnant"):
+        score += 5
+
+    # Outdoor exposure
+    if occupation in (
+        "Outdoor worker",
+        "Athlete / frequent exerciser"
+    ):
+        score += 10
+
+    return min(score, 100)
+
+if __name__ == "__main__":
+    test_profile = {
+        "age_group": "Senior (60+)",
+        "health_condition": "Asthma",
+        "occupation": "Outdoor worker"
+    }
+
+    test_conditions = {
+        "us_aqi": 185,
+        "temperature": 34,
+        "uv_index": 7
+    }
+
+    print("Risk score:", calculate_risk_score(test_profile, test_conditions))
