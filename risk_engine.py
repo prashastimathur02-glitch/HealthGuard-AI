@@ -18,7 +18,17 @@ def build_trend_dataframe(weather_json: dict, air_json: dict) -> pd.DataFrame:
     })
     df = pd.merge(df_w, df_a, on="time", how="inner")
     df["date"] = df["time"].dt.date
-    return df.groupby("date").mean(numeric_only=True).reset_index()
+    daily = df.groupby("date").agg({
+        "temperature_2m": "mean",
+        "relative_humidity_2m": "mean",
+        "precipitation": "sum",
+        "uv_index": "max",
+        "wind_speed_10m": "mean",
+        "pm2_5": "max",
+        "pm10": "max",
+        "us_aqi": "max"
+        }).reset_index()
+    return daily
 
 
 def rule_based_advisory(profile: dict, c: dict) -> str:

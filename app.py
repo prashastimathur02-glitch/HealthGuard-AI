@@ -194,6 +194,53 @@ st.markdown("### 📈 7-Day Trend")
 trend_df = build_trend_dataframe(weather_json, air_json)
 trend_df_display = trend_df.set_index("date")
 
+# --- 7-Day Personal Risk Forecast ---
+st.markdown("### 📅 7-Day Personal Risk Forecast")
+
+personal_risks = []
+
+for _, row in trend_df.iterrows():
+    day_conditions = {
+        "temperature": row["temperature_2m"],
+        "humidity": row["relative_humidity_2m"],
+        "uv_index": row["uv_index"],
+        "wind": row["wind_speed_10m"],
+        "precipitation": row["precipitation"],
+        "pm2_5": row["pm2_5"],
+        "pm10": row["pm10"],
+        "us_aqi": row["us_aqi"],
+    }
+
+    risk = calculate_risk_score(profile, day_conditions)
+    personal_risks.append(risk)
+
+# Create the column before displaying it
+trend_df["personal_risk"] = personal_risks
+
+st.dataframe(
+    trend_df[["date", "personal_risk"]].rename(
+        columns={
+            "date": "Date",
+            "personal_risk": "Personal Risk"
+        }
+    ),
+    use_container_width=True,
+    hide_index=True
+)
+
+highest_risk = trend_df.loc[
+    trend_df["personal_risk"].idxmax()
+]
+
+st.warning(
+    f"⚠️ Highest-risk day: **{highest_risk['date']}** "
+    f"with a personal environmental risk of "
+    f"**{int(highest_risk['personal_risk'])}/100**."
+)
+
+st.line_chart(
+    trend_df.set_index("date")[["personal_risk"]]
+)
 tab1, tab2 = st.tabs(["Weather Trends", "AQI Trends"])
 with tab1:
     st.line_chart(trend_df_display[["temperature_2m", "relative_humidity_2m"]])
