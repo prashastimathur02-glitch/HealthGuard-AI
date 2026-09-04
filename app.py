@@ -29,6 +29,9 @@ with st.sidebar:
 
 profile = {"age_group": age_group, "health_condition": health_condition, "occupation": occupation}
 
+# Easy Mode for older and less technical users
+with st.sidebar:
+    easy_mode = st.toggle("👴 Easy Mode")
 # --- Location resolution ---
 if "selected_location" not in st.session_state:
     st.session_state.selected_location = None
@@ -94,6 +97,43 @@ c6.metric("US AQI", f"{aqi_val:.0f}" if aqi_val is not None else "N/A")
 st.markdown("### 🩺 Your Personalized Advisory")
 advisory_text = get_ai_advisory(profile, current_conditions)
 st.info(advisory_text)
+# Easy Mode display
+if easy_mode:
+    st.markdown("## ❤️ Easy Mode")
+
+    aqi = current_conditions["us_aqi"]
+
+    if aqi is None:
+        air_message = "⚠️ Air quality information is unavailable."
+    elif aqi <= 50:
+        air_message = "🟢 AIR IS GOOD"
+    elif aqi <= 100:
+        air_message = "🟡 AIR IS MODERATE"
+    elif aqi <= 150:
+        air_message = "🟠 AIR MAY AFFECT SENSITIVE PEOPLE"
+    elif aqi <= 200:
+        air_message = "🔴 AIR IS UNHEALTHY"
+    elif aqi <= 300:
+        air_message = "🟣 AIR IS VERY UNHEALTHY"
+    else:
+        air_message = "🚨 AIR IS HAZARDOUS"
+
+    st.markdown(f"### {air_message}")
+
+    if aqi is not None:
+        st.markdown(f"### AQI: {aqi:.0f}")
+
+    st.markdown("### 🩺 What should you do?")
+    st.info(advisory_text)
+
+    st.markdown(
+        """
+        ### Remember
+        - Follow the simple advice above.
+        - Reduce outdoor exposure when air quality is poor.
+        - This information is general guidance and is not a medical diagnosis.
+        """
+    )
 st.caption("Advisory currently uses a rule-based fallback. Add a Groq/Gemini API key in ai_advisor.py to switch to full AI-generated advice.")
 
 # --- Trends ---
