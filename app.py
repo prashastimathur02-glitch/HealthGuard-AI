@@ -338,6 +338,17 @@ def section_header(title: str, icon: str) -> None:
     )
 
 
+def easy_mode_message(risk_level: str) -> tuple[str, str]:
+    """One simple decision for children, elders, and first-time users."""
+    messages = {
+        "Low": ("🟢 Today is okay", "You can follow your normal routine. Drink water and use sun protection outdoors."),
+        "Moderate": ("🟡 Be a little careful", "Take breaks outdoors. Drink water and avoid very hard exercise outside."),
+        "High": ("🔴 Limit outdoor time", "Stay indoors when possible. If you must go out, take short breaks and use a mask in dusty air."),
+        "Very high": ("🚨 Stay safer indoors", "Postpone outdoor work or exercise when possible. Follow your doctor’s usual plan if you have breathing or heart symptoms."),
+    }
+    return messages[risk_level]
+
+
 def profile_picker(prefix: str, include_gender: bool = True) -> UserProfile:
     """Small reusable profile form; pregnancy is only available to eligible profiles."""
     age = st.selectbox("Age group", AGE_GROUPS, key=f"{prefix}_age")
@@ -407,6 +418,7 @@ with st.sidebar:
     st.header("Your profile")
     profile = profile_picker("main")
     language = st.selectbox("Advisory language", LANGUAGES)
+    easy_mode = st.toggle("Easy Mode", help="Shows only one big status and one clear action.")
     st.divider()
     st.caption("Add GROQ_API_KEY to `.env` for AI wording and translations. Safety rules always work.")
 
@@ -450,6 +462,19 @@ if refresh or st.session_state.get("cache_key") != cache_key:
         st.stop()
 
 conditions, risk, advisory = st.session_state["conditions"], st.session_state["risk"], st.session_state["advisory"]
+
+if easy_mode:
+    simple_heading, simple_action = easy_mode_message(risk.level)
+    st.markdown("# ❤️ Easy Mode")
+    st.markdown(f"## {simple_heading}")
+    st.info(simple_action)
+    st.markdown("### Air quality today")
+    st.metric("AQI", conditions.aqi_us if conditions.aqi_us is not None else "Not available", aqi_band(conditions.aqi_us))
+    st.markdown("### Your advice")
+    st.info(advisory)
+    st.caption("Use the sidebar to turn off Easy Mode and see the full dashboard.")
+    st.stop()
+
 section_header(f"Live conditions — {selected.name}", "◉")
 st.caption(f"Updated: {conditions.observed_at} local time")
 metrics = st.columns(5)
