@@ -1,2 +1,9 @@
 .env
+<<<<<<< HEAD
 __pycache__/
+=======
+.streamlit/secrets.toml
+__pycache__/
+*.py[cod]
+weather_advisory.db
+>>>>>>> 02c99f6 (Add profile comparison, risk gauge, and polished UI)
