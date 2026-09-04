@@ -1,1 +1,122 @@
+import streamlit as st
+from datetime import datetime
+from weather import geocode_city, fetch_weather
+from aqi import fetch_air_quality
+from risk_engine import build_trend_dataframe
+from ai_advisor import get_ai_advisory
 
+st.set_page_config(page_title="Weather & AQI Health Advisory", page_icon="🌤️", layout="wide")
+
+st.title("🌤️ AI-Powered Weather & AQI Health Advisory")
+st.caption("Personalized health guidance based on live conditions and your profile — not a generic threshold alert.")
+
+# --- Sidebar: User Profile ---
+with st.sidebar:
+    st.header("👤 User Profile")
+    age_group = st.selectbox("Age group", ["Child", "Teen", "Adult", "Senior (60+)"])
+    health_condition = st.selectbox(
+        "Health condition",
+        ["None", "Asthma", "Heart condition", "Allergies", "Pregnant", "Other respiratory condition"],
+    )
+    occupation = st.selectbox(
+        "Occupation / activity type",
+        ["Indoor worker", "Outdoor worker", "Student", "Athlete / frequent exerciser", "Retired / not working"],
+    )
+    st.divider()
+    st.header("📍 Location")
+    city_input = st.text_input("City name", value="Bhopal")
+    search_clicked = st.button("Search location", use_container_width=True)
+
+profile = {"age_group": age_group, "health_condition": health_condition, "occupation": occupation}
+
+# --- Location resolution ---
+if "selected_location" not in st.session_state:
+    st.session_state.selected_location = None
+
+if search_clicked or st.session_state.selected_location is None:
+    if city_input:
+        results = geocode_city(city_input)
+        if results:
+            options = {
+                f"{r['name']}, {r.get('admin1', '')}, {r['country']} ({r['latitude']:.2f}, {r['longitude']:.2f})": r
+                for r in results
+            }
+            with st.sidebar:
+                choice = st.selectbox("Select match", list(options.keys()))
+            st.session_state.selected_location = options[choice]
+        else:
+            st.warning("No matching location found. Try a different spelling.")
+
+location = st.session_state.selected_location
+
+if location is None:
+    st.info("Enter a city name in the sidebar and click **Search location** to begin.")
+    st.stop()
+
+lat, lon = location["latitude"], location["longitude"]
+st.subheader(f"📍 {location['name']}, {location.get('admin1', '')}, {location['country']}")
+
+# --- Fetch live data ---
+with st.spinner("Fetching live weather and air quality data..."):
+    try:
+        weather_json = fetch_weather(lat, lon)
+        air_json = fetch_air_quality(lat, lon)
+    except Exception as e:
+        st.error(f"Failed to fetch live data: {e}")
+        st.stop()
+
+current_w = weather_json["current"]
+current_a = air_json["current"]
+
+current_conditions = {
+    "temperature": current_w.get("temperature_2m"),
+    "humidity": current_w.get("relative_humidity_2m"),
+    "precipitation": current_w.get("precipitation"),
+    "wind": current_w.get("wind_speed_10m"),
+    "uv_index": current_w.get("uv_index"),
+    "pm2_5": current_a.get("pm2_5"),
+    "pm10": current_a.get("pm10"),
+    "us_aqi": current_a.get("us_aqi"),
+}
+
+# --- Current conditions row ---
+st.markdown("### Current Conditions")
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+c1.metric("Temperature", f"{current_conditions['temperature']:.1f}°C")
+c2.metric("Humidity", f"{current_conditions['humidity']:.0f}%")
+c3.metric("UV Index", f"{current_conditions['uv_index']:.1f}")
+c4.metric("Wind", f"{current_conditions['wind']:.1f} km/h")
+c5.metric("PM2.5", f"{current_conditions['pm2_5']:.1f} µg/m³")
+aqi_val = current_conditions["us_aqi"]
+c6.metric("US AQI", f"{aqi_val:.0f}" if aqi_val is not None else "N/A")
+
+# --- AI Advisory ---
+st.markdown("### 🩺 Your Personalized Advisory")
+advisory_text = get_ai_advisory(profile, current_conditions)
+st.info(advisory_text)
+st.caption("Advisory currently uses a rule-based fallback. Add a Groq/Gemini API key in ai_advisor.py to switch to full AI-generated advice.")
+
+# --- Trends ---
+st.markdown("### 📈 7-Day Trend")
+trend_df = build_trend_dataframe(weather_json, air_json)
+trend_df_display = trend_df.set_index("date")
+
+tab1, tab2 = st.tabs(["Weather Trends", "AQI Trends"])
+with tab1:
+    st.line_chart(trend_df_display[["temperature_2m", "relative_humidity_2m"]])
+    st.line_chart(trend_df_display[["uv_index", "wind_speed_10m"]])
+with tab2:
+    st.line_chart(trend_df_display[["pm2_5", "pm10"]])
+    st.line_chart(trend_df_display[["us_aqi"]])
+
+# --- Alert history table ---
+st.markdown("### 📋 Daily Summary (Alert History)")
+st.dataframe(
+    trend_df_display[["temperature_2m", "us_aqi", "pm2_5"]].rename(
+        columns={"temperature_2m": "Avg Temp (°C)", "us_aqi": "Avg US AQI", "pm2_5": "Avg PM2.5"}
+    ).style.format("{:.1f}"),
+    use_container_width=True,
+)
+
+st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')} — data from Open-Meteo (weather + air quality).")
+st.caption("Advisory generated by Groq LLM (llama-3.1-8b-instant), personalized to your profile and live conditions.")
