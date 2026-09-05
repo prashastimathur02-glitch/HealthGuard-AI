@@ -54,10 +54,19 @@ def assess_risk(profile: UserProfile, conditions: Conditions) -> RiskAssessment:
         score += 6
         reasons.append(f"AQI is {aqi} ({aqi_band(aqi).lower()}).")
 
-    vulnerable = profile.health_condition in {"Asthma", "COPD / heart condition"}
+    vulnerable = profile.health_condition in {
+        "Asthma",
+        "COPD / heart condition",
+        "High blood pressure",
+        "Chronic kidney disease",
+        "Cancer / weak immunity",
+    }
     if vulnerable and aqi is not None and aqi > 50:
         score += 2
         reasons.append(f"{profile.health_condition} increases sensitivity to air pollution.")
+    elif profile.health_condition == "Diabetes" and aqi is not None and aqi > 100:
+        score += 1
+        reasons.append("Diabetes can increase vulnerability during poor air quality and heat.")
     if profile.age_group in {"Infant (0–3)", "Child", "Elderly"} and aqi is not None and aqi > 50:
         score += 1
         reasons.append("This age group can be more affected by poor air quality.")
