@@ -502,9 +502,18 @@ def advisory_card(city: str, conditions, risk, advisory: str) -> bytes:
     """Create a portable, privacy-safe summary card on demand."""
     image = Image.new("RGB", (1200, 720), "#071a35")
     draw = ImageDraw.Draw(image)
-    title_font = ImageFont.truetype("arial.ttf", 46)
-    body_font = ImageFont.truetype("arial.ttf", 28)
-    small_font = ImageFont.truetype("arial.ttf", 22)
+    def card_font(size: int):
+        # DejaVu ships with most Linux/Pillow deployments; Arial is Windows-only.
+        for font_name in ("DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "arial.ttf"):
+            try:
+                return ImageFont.truetype(font_name, size)
+            except OSError:
+                continue
+        return ImageFont.load_default(size=size)
+
+    title_font = card_font(46)
+    body_font = card_font(28)
+    small_font = card_font(22)
     accent = {"Low": "#43d17d", "Moderate": "#ffc857", "High": "#ff8c42", "Very high": "#ff5c5c"}[risk.level]
     draw.rounded_rectangle((35, 35, 1165, 685), radius=28, fill="#102b55", outline=accent, width=6)
     draw.text((80, 80), "AIR AWARE", fill="white", font=title_font)
