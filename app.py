@@ -444,9 +444,14 @@ def advisory_style(risk_level: str) -> None:
     )
 
 
-def profile_picker(prefix: str, include_gender: bool = True) -> UserProfile:
+def profile_picker(prefix: str, include_gender: bool = True, fixed_age: str | None = None) -> UserProfile:
     """Small reusable profile form; pregnancy is only available to eligible profiles."""
-    age = st.selectbox("Age group", AGE_GROUPS, key=f"{prefix}_age")
+    if fixed_age:
+        age = fixed_age
+        st.markdown(f"**Age group:** {age}")
+        st.caption("Age is matched to Profile A for a fair comparison.")
+    else:
+        age = st.selectbox("Age group", AGE_GROUPS, key=f"{prefix}_age")
     gender = st.selectbox("Gender", GENDERS, key=f"{prefix}_gender") if include_gender else "Prefer not to say"
     health_options = CONDITIONS.copy()
     if gender == "Woman" and age in {"Adult"}:
@@ -688,7 +693,7 @@ with st.expander("Compare profiles — same place, same second", expanded=True):
         profile_a = profile
     with compare_right:
         st.markdown("#### Profile B — Compare with")
-        profile_b = profile_picker("compare_b")
+        profile_b = profile_picker("compare_b", fixed_age=profile.age_group)
     if st.button("Compare these two profiles", type="primary") or "comparison" not in st.session_state:
         comparison = []
         for candidate in (profile_a, profile_b):
@@ -718,12 +723,35 @@ if not day_frame.empty:
 section_header("AQI trend — past 7 days", "⌁")
 history = pd.DataFrame(st.session_state["history"])
 if not history.empty:
+    history["date"] = pd.to_datetime(history["date"], errors="coerce")
+    history["aqi"] = pd.to_numeric(history["aqi"], errors="coerce")
+    history = history.dropna(subset=["date", "aqi"]).sort_values("date")
+if not history.empty:
     precaution_days = int((history["aqi"] > 100).sum())
     st.caption(f"Precaution suggested on {precaution_days} of the last {len(history)} days (daily AQI above 100).")
-    figure = px.line(history, x="date", y="aqi", markers=True, labels={"date": "Date", "aqi": "Daily average US AQI"})
-    figure.add_hline(y=100, line_dash="dash", annotation_text="Sensitive groups threshold")
+    figure = go.Figure()
+    figure.add_trace(go.Scatter(
+        x=history["date"].dt.strftime("%d %b").tolist(),
+        y=history["aqi"].tolist(),
+        mode="lines+markers",
+        name="Daily AQI",
+        line={"color": "#df3b45", "width": 3},
+        marker={"size": 9, "color": "#ff737c"},
+        hovertemplate="%{x}<br>AQI: %{y:.0f}<extra></extra>",
+    ))
+    figure.add_hline(y=100, line_dash="dash", line_color="#ffc857", annotation_text="Precaution threshold")
+    figure.update_layout(
+        title="Daily average AQI",
+        xaxis_title="Date",
+        yaxis_title="US AQI",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(8,8,10,.7)",
+        margin=dict(l=30, r=25, t=60, b=45),
+    )
     enlarge_chart_fonts(figure)
     st.plotly_chart(figure, use_container_width=True)
+else:
+    st.info("The AQI trend needs at least one valid historical reading.")
 
 section_header("Alert history", "▣")
 with st.expander("Your saved advisory history"):
